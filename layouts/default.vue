@@ -1,5 +1,5 @@
 <template>
-    <div>
+    <div class="min-h-screen bg-[url(backgroundImg.jpg)] bg-cover bg-center">
         <slot/>
     </div>
 </template>
