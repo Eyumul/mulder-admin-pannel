@@ -30,14 +30,17 @@
                 <table class="w-full">
                     <thead>
                         <tr class="sticky top-0 bg-black z-10 text-sm text-primary-500 border-b-[1px] border-primary-500">
-                            <th class="text-start">Item</th>
+                            <th class="relative text-start">
+                                Item
+                                <icon @click="resetChanges()" name="material-symbols:refresh" :class="isEditModeOn ? '' : 'hidden'" class="text-primary-500 font-black absolute left-2 text-lg cursor-pointer"/>
+                            </th>
                             <th class="text-center">Amount</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr class="font-bold" v-for="stock in stockList" :key="stock.id">
                             <td class="relative text-sm uppercase">
-                                <icon @click="deleteStock(stock.id)" name="fluent:delete-12-regular" :class="isEditModeOn ? '' : 'hidden'" class="text-red-500 font-black absolute left-2 text-lg"/>
+                                <icon @click="deleteStock(stock.id)" name="fluent:delete-12-regular" :class="isEditModeOn ? '' : 'hidden'" class="text-red-500 font-black absolute left-2 text-xl cursor-pointer"/>
                                 <input v-if="isEditModeOn" size="5" v-model="stock.name" class="bg-transparent focus:outline-0"/>
                                 <p v-else class="text-primary-200">{{ stock.name }}</p>
                             </td>
@@ -50,11 +53,11 @@
                                 />
                                 <div v-if="isEditModeOn">
                                     <div v-if="stock.metrics == 'pcs'" class="flex h-8 items-center justify-center">
-                                        <div class="flex justify-center items-center px-2 h-full rounded-l-[5px] bg-primary-500 text-white font-black text-lg">
-                                            <button @click="stock.amount++"><icon name="fluent:add-12-regular"/></button>
+                                        <div @click="stock.amount++" class="flex justify-center items-center cursor-pointer px-2 h-full rounded-l-[5px] bg-primary-500 text-white font-black text-lg">
+                                            <icon name="fluent:add-12-regular"/>
                                         </div>
                                         <input type="number" v-model="stock.amount" class="bg-transparent h-full w-9 px-[2px] focus:outline-0 border-y-[1px] border-primary-900 text-center"/>
-                                        <div @click="stock.amount > 0 ? stock.amount-- : null" class="flex justify-center items-center px-2 h-full rounded-r-[5px] bg-primary-500 text-white font-black text-lg">
+                                        <div @click="stock.amount > 0 ? stock.amount-- : null" class="flex justify-center items-center cursor-pointer px-2 h-full rounded-r-[5px] bg-primary-500 text-white font-black text-lg">
                                             <icon name="fluent:minimize-24-regular"/>
                                         </div>
                                     </div>
@@ -249,6 +252,10 @@ watchEffect(() => {
     stockList.value = original.map(s => ({ ...s })); // separate clone for editing
   }
 });
+
+const resetChanges = () => {
+  stockList.value = originalStockList.value.map(s => ({ ...s }));
+};
 
 const isStockModified = (stock) => {
   const original = originalStockList.value.find(s => s.id === stock.id);
