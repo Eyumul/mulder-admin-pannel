@@ -32,9 +32,22 @@
                         <tr class="sticky top-0 bg-black z-10 text-sm text-primary-500 border-b-[1px] border-primary-500">
                             <th class="relative text-start">
                                 Item
-                                <icon @click="resetChanges()" name="material-symbols:refresh" :class="isEditModeOn ? '' : 'hidden'" class="text-primary-500 font-black absolute left-2 text-lg cursor-pointer"/>
+                                <icon 
+                                    @click="resetChanges()" 
+                                    name="material-symbols:refresh" 
+                                    :class="isEditModeOn ? '' : 'hidden'" 
+                                    class="text-primary-500 font-black absolute left-2 text-lg cursor-pointer"
+                                />
                             </th>
-                            <th class="text-center">Amount</th>
+                            <th class="relative text-center">
+                                Amount
+                                <icon
+                                    @click="saveAllChanges"
+                                    name="lucide:save-all"
+                                    v-if="hasUnsavedChanges && isEditModeOn"
+                                    class="text-green-500 font-black absolute left-2 text-lg cursor-pointer"
+                                />
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -47,18 +60,18 @@
                             <td class="flex justify-center items-center relative text-center">
                                 <icon
                                     v-if="isEditModeOn && isStockModified(stock)"
-                                    name="fluent:save-20-filled"
-                                    class="text-green-400 absolute left-3 text-xl cursor-pointer"
+                                    name="lucide:save"
+                                    class="text-green-500 absolute left-3 text-xl cursor-pointer"
                                     @click="saveStock(stock)"
                                 />
                                 <div v-if="isEditModeOn">
                                     <div v-if="stock.metrics == 'pcs'" class="flex h-8 items-center justify-center">
-                                        <div @click="stock.amount++" class="flex justify-center items-center cursor-pointer px-2 h-full rounded-l-[5px] bg-primary-500 text-white font-black text-lg">
-                                            <icon name="fluent:add-12-regular"/>
+                                        <div @click="stock.amount > 0 ? stock.amount-- : null" class="flex justify-center items-center cursor-pointer px-2 h-full rounded-l-[5px] bg-primary-500 text-white font-black text-lg">
+                                            <icon name="fluent:minimize-24-regular"/>
                                         </div>
                                         <input type="number" v-model="stock.amount" class="bg-transparent h-full w-9 px-[2px] focus:outline-0 border-y-[1px] border-primary-900 text-center"/>
-                                        <div @click="stock.amount > 0 ? stock.amount-- : null" class="flex justify-center items-center cursor-pointer px-2 h-full rounded-r-[5px] bg-primary-500 text-white font-black text-lg">
-                                            <icon name="fluent:minimize-24-regular"/>
+                                        <div @click="stock.amount++" class="flex justify-center items-center cursor-pointer px-2 h-full rounded-r-[5px] bg-primary-500 text-white font-black text-lg">
+                                            <icon name="fluent:add-12-regular"/>
                                         </div>
                                     </div>
                                     <div v-else-if="stock.metrics == 'sqf'" class="flex relative h-8 items-center justify-center">
@@ -116,6 +129,7 @@ const isValidAmount = ref(true);
 const isValidMetrics = ref(true);
 const stockList = ref([]);   // Local modifiable copy
 const originalStockList = ref([]);
+const hasInitialized = ref(false);
 const searchText = ref('');
 const client = useSupabaseClient();
 const user = useSupabaseUser();
@@ -178,8 +192,9 @@ const addStock = async (itemAmount, itemName, itemMetrics) => {
                 amount: itemAmount,
                 metrics: itemMetrics
             });
-            cancelModal();
             await refetch();
+            hasInitialized.value = false;
+            cancelModal();
             onDone((result) => {
                 console.log("Inserted:", result.data.insert_stock_one);
             });
@@ -205,10 +220,38 @@ const saveStock = async (stock) => {
     if (index !== -1) {
       originalStockList.value[index] = { ...stock };
     }
-    await refetch();
+    // await refetch();
     console.log("Updated:", stock);
   } catch (error) {
     console.error("Error updating stock:", error);
+  }
+};
+
+const saveAllChanges = async () => {
+  const updatePromises = [];
+
+  for (let i = 0; i < stockList.value.length; i++) {
+    const edited = stockList.value[i];
+    const original = originalStockList.value[i];
+
+    if (edited.name !== original.name || edited.amount !== original.amount) {
+      updatePromises.push(
+        updateStock({
+          id: edited.id,
+          name: edited.name,
+          amount: edited.amount,
+        })
+      );
+    }
+  }
+
+  try {
+    await Promise.all(updatePromises);
+    await refetch();
+    hasInitialized.value = false; // trigger list refresh after refetch
+    console.log("All changes saved.");
+  } catch (error) {
+    console.error("Error saving changes:", error);
   }
 };
 
@@ -219,6 +262,7 @@ const deleteStock = async (itemId) => {
                 id: itemId
             });
             await refetch();
+            hasInitialized.value = false;
         } catch (error) {
             console.error("Unexpected error: ", error);
         }
@@ -239,19 +283,27 @@ const cancelModal = () => {
 
 // Watch the query result and update the local list
 watchEffect(() => {
-  if (stocks.value?.stock) {
+  if (!hasInitialized.value && stocks.value?.stock) {
     // Clone the data so it's no longer read-only
     stockList.value = stocks.value.stock.map(s => ({ ...s }));
   }
 });
 
 watchEffect(() => {
-  if (stocks.value?.stock) {
+  if (!hasInitialized.value && stocks.value?.stock) {
     const original = stocks.value.stock.map(s => ({ ...s }));
     originalStockList.value = original;
-    stockList.value = original.map(s => ({ ...s })); // separate clone for editing
+    stockList.value = original.map(s => ({ ...s }));
+    hasInitialized.value = true;
   }
 });
+
+const syncStockLists = () => {
+  if (stocks.value?.stock) {
+    originalStockList.value = stocks.value.stock.map(s => ({ ...s }));
+    stockList.value = stocks.value.stock.map(s => ({ ...s }));
+  }
+};
 
 const resetChanges = () => {
   stockList.value = originalStockList.value.map(s => ({ ...s }));
@@ -263,14 +315,23 @@ const isStockModified = (stock) => {
   return stock.name !== original.name || stock.amount !== original.amount;
 };
 
-// Debounced handler for search
-const handleSearch = () => {
-  const keyword = searchText.value.trim();
+const hasUnsavedChanges = computed(() => {
+  return stockList.value.some((stock, i) => {
+    const original = originalStockList.value[i];
+    return (
+      stock.name !== original.name ||
+      stock.amount !== original.amount
+    );
+  });
+});
 
-  // if empty input, return all
+// Debounced handler for search
+const handleSearch = async () => {
+  const keyword = searchText.value.trim();
   const searchParam = keyword === '' ? '%%' : `%${keyword}%`;
 
-  refetch({ search: searchParam });
+  await refetch({ search: searchParam });
+  syncStockLists();
 };
 
 // function to log out
