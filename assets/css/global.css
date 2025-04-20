@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {    
+      /* Autofill fix */
+      input:-webkit-autofill,
+      input:-webkit-autofill:hover,
+      input:-webkit-autofill:focus,
+      input:-webkit-autofill:active {
+        @apply text-white;
+        box-shadow: 0 0 0px  transparent inset; /* Match your bg (black here) */
+        -webkit-text-fill-color: white;
+        transition: background-color 9999s ease-in-out 0s;
+      }
+}
