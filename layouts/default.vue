@@ -8,6 +8,9 @@
 
 <script setup>
 import { ClientOnly } from '#components'
+useHead({
+  title: 'Mulder'
+})
 </script>
 
 <style>
